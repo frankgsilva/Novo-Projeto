@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Capacity</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div class="main-container">
+        
+        <aside class="sidebar">
+            <h3>Premissas</h3>
+            
+            <div class="input-group">
+                <label>Volume Mensal</label>
+                <input type="number" id="volumeInput" value="50000">
+            </div>
+
+            <div class="input-group">
+                <label>TME (segundos)</label>
+                <input type="number" id="tmeInput" value="180">
+            </div>
+
+            <div class="input-group">
+                <label>Ocupação Alvo (%)</label>
+                <input type="number" id="occupancyInput" value="85">
+            </div>
+
+            <div class="input-group">
+                <label>Nível de Serviço (%)</label>
+                <input type="number" id="slInput" value="80">
+            </div>
+
+            <div class="input-group">
+                <label>Tempo Espera (seg)</label>
+                <input type="number" id="targetTimeInput" value="20">
+            </div>
+
+            <div class="input-group">
+                <label>Custo por PA (R$)</label>
+                <input type="number" id="costInput" value="3500">
+            </div>
+
+            <button id="btnCalc">CALCULAR</button>
+        </aside>
+
+        <div class="right-column">
+            <header class="header">
+                <div class="header-title">SIMULADOR DE CAPACITY</div>
+                <div class="header-logo">LOGO</div>
+            </header>
+
+            <main class="content-area">
+                
+                <div class="grid-box graph-box">
+                    <h4>Curva Intraday</h4>
+                    <div class="canvas-container">
+                        <canvas id="chartPositions"></canvas>
+                    </div>
+                </div>
+
+                <div class="grid-box graph-box">
+                    <h4>Volume de Chamadas</h4>
+                    <div class="canvas-container">
+                        <canvas id="chartVolume"></canvas>
+                    </div>
+                </div>
+
+                <div class="grid-box graph-box">
+                    <h4>Composição do TME</h4>
+                    <div class="canvas-container">
+                        <canvas id="chartTME"></canvas>
+                    </div>
+                </div>
+
+                <div class="grid-box results-box">
+                    <h4>Estimativa Final</h4>
+                    
+                    <div class="kpi-container">
+                        <div class="kpi-item">
+                            <span class="kpi-label">👥 Headcount</span>
+                            <span class="kpi-value" id="resHeadcount">0</span>
+                        </div>
+                        <div class="kpi-item">
+                            <span class="kpi-label">☎️ PAs Logadas</span>
+                            <span class="kpi-value" id="resPas">0</span>
+                        </div>
+                        <div class="kpi-item">
+                            <span class="kpi-label">💲 Custo Mensal</span>
+                            <span class="kpi-value highlight" id="resTotalCost">R$ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
