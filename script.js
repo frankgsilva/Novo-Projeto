@@ -1,150 +1,174 @@
-// Configuração de cores globais do Chart.js para combinar com o tema
+// --- CONFIGURAÇÃO GLOBAL ---
+// Assegura que o Chart.js use cores visíveis no fundo preto
 Chart.defaults.color = '#ccc';
 Chart.defaults.borderColor = '#333';
 
-let charts = {}; // Variável para armazenar os gráficos e poder atualizá-los
+let charts = {}; // Armazena as instâncias dos gráficos
+
+// 1. DADOS DE BANCO DE DADOS (SIMULADO)
+const historicalData = {
+    avgMonthlyVolume: 5000, 
+    avgTME: 180
+};
+
+// 2. CURVA DE DISTRIBUIÇÃO (CURVA M)
+const distributionCurve = {
+    labels: ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'],
+    values: [0.05,   0.08,    0.12,    0.10,    0.07,    0.08,    0.10,    0.13,    0.11,    0.10,    0.06]
+};
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Inicia os gráficos vazios ou com dados padrão
+    console.log("Sistema Iniciado.");
+
+    // Preenche inputs iniciais
+    if(document.getElementById('baseVolumeInput')) {
+        document.getElementById('baseVolumeInput').value = historicalData.avgMonthlyVolume;
+        document.getElementById('tmeInput').value = historicalData.avgTME;
+    }
+
+    // Inicializa e Calcula
     initCharts();
-    
-    // 2. Realiza o cálculo inicial ao carregar a página
     calculateAndRender();
 
-    // 3. Adiciona evento de clique no botão "CALCULAR"
-    document.getElementById('btnCalc').addEventListener('click', calculateAndRender);
+    // Eventos
+    const btn = document.getElementById('btnCalc');
+    if(btn) btn.addEventListener('click', calculateAndRender);
 });
 
+function initCharts() {
+    // --- GRÁFICO 1: LINHA ---
+    const ctxPos = document.getElementById('chartPositions');
+    if (ctxPos) {
+        charts.positions = new Chart(ctxPos.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: distributionCurve.labels,
+                datasets: [{
+                    label: 'Agentes',
+                    borderColor: '#a64ca6',
+                    backgroundColor: 'rgba(166, 76, 166, 0.2)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    data: []
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // Importante para preencher a div
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    // --- GRÁFICO 2: BARRAS ---
+    const ctxVol = document.getElementById('chartVolume');
+    if (ctxVol) {
+        charts.volume = new Chart(ctxVol.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ['Volume Mensal'],
+                datasets: [
+                    { label: 'Base', backgroundColor: '#5b76f2', data: [] },
+                    { label: 'Novo', backgroundColor: '#2fa86d', data: [] }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { x: { stacked: true }, y: { stacked: true } }
+            }
+        });
+    }
+
+    // --- GRÁFICO 3: PIZZA ---
+    const ctxTme = document.getElementById('chartTME');
+    if (ctxTme) {
+        charts.tme = new Chart(ctxTme.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Falado', 'Hold', 'ACW'],
+                datasets: [{
+                    data: [],
+                    backgroundColor: ['#a64ca6', '#5b76f2', '#f5a623'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { position: 'right', labels: { boxWidth: 10, color: '#fff' } } 
+                }
+            }
+        });
+    }
+}
+
 function calculateAndRender() {
-    // --- COLETA DE DADOS DO HTML ---
-    const volumeMensal = parseFloat(document.getElementById('volumeInput').value) || 0;
+    // Coleta Inputs
+    const baseVolume = parseFloat(document.getElementById('baseVolumeInput').value) || 0;
+    const newVolume = parseFloat(document.getElementById('newVolumeInput').value) || 0;
     const tme = parseFloat(document.getElementById('tmeInput').value) || 0;
     const occupancyTarget = (parseFloat(document.getElementById('occupancyInput').value) || 100) / 100;
+    const shrinkagePercent = (parseFloat(document.getElementById('shrinkageInput').value) || 0) / 100;
     const costPerPA = parseFloat(document.getElementById('costInput').value) || 0;
-    
-    // --- LÓGICA DE CAPACITY (Simplificada) ---
-    
-    // Premissa: Mês de 22 dias úteis
-    const diasUteis = 22;
-    const volumeDiario = volumeMensal / diasUteis;
-    
-    // Premissa: Hora de Pico concentra 15% do volume do dia
-    const volumeHoraPico = volumeDiario * 0.15;
-    
-    // Intensidade de Tráfego (Erlangs) = (Chamadas/hora * TME seg) / 3600
-    const erlangs = (volumeHoraPico * tme) / 3600;
 
-    // Cálculo de PAs necessárias (Erlang Simples + Ocupação)
-    let requiredPas = erlangs / occupancyTarget;
+    // Lógica de Cálculo
+    const totalMonthlyVolume = baseVolume + newVolume;
+    const dailyVolume = totalMonthlyVolume / 22; // 22 dias úteis
     
-    // Shrinkage (Perdas operacionais: absenteísmo, pausas) - Adotado 20%
-    const shrinkage = 1.20; 
-    
-    // Arredondamentos
-    const pasLogadas = Math.ceil(requiredPas); // PAs no momento de pico
-    const headcount = Math.ceil(pasLogadas * shrinkage); // Pessoas contratadas
-    const totalCost = headcount * costPerPA;
+    // Pico (Maior % da curva * Volume Diário)
+    const maxHourlyShare = Math.max(...distributionCurve.values);
+    const peakHourVolume = dailyVolume * maxHourlyShare;
 
-    // --- ATUALIZAÇÃO DOS RESULTADOS NA TELA ---
-    document.getElementById('resPas').innerText = pasLogadas;
-    document.getElementById('resHeadcount').innerText = headcount;
+    // Erlangs no Pico
+    const peakErlangs = (peakHourVolume * tme) / 3600;
+
+    // Dimensionamento
+    let netAgents = peakErlangs / occupancyTarget;
+    const requiredHeadcount = Math.ceil(netAgents / (1 - shrinkagePercent));
+    const totalCost = requiredHeadcount * costPerPA;
+
+    // Atualiza Texto
+    document.getElementById('resHeadcount').innerText = requiredHeadcount;
+    document.getElementById('resPasPeak').innerText = Math.ceil(netAgents);
+    document.getElementById('resErlangs').innerText = peakErlangs.toFixed(2);
     document.getElementById('resTotalCost').innerText = totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-    // --- ATUALIZAÇÃO DOS GRÁFICOS ---
-    updateCharts(pasLogadas, volumeMensal, tme);
+    // Atualiza Gráficos
+    updateCharts(baseVolume, newVolume, Math.ceil(netAgents), tme);
 }
 
-function initCharts() {
-    // Gráfico 1: Linha (Intraday)
-    const ctxPos = document.getElementById('chartPositions').getContext('2d');
-    charts.positions = new Chart(ctxPos, {
-        type: 'line',
-        data: {
-            labels: ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'],
-            datasets: [{
-                label: 'Posições Necessárias',
-                borderColor: '#a64ca6', // Roxo
-                backgroundColor: 'rgba(166, 76, 166, 0.2)',
-                borderWidth: 2,
-                tension: 0.4, // Curva suave
-                fill: true,
-                data: [] 
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } }
-        }
-    });
+function updateCharts(baseVol, newVol, peakAgents, tmeTotal) {
+    // Atualiza Linha (Intraday)
+    if (charts.positions) {
+        const maxVal = Math.max(...distributionCurve.values);
+        // Evita divisão por zero
+        const safeMax = maxVal === 0 ? 1 : maxVal;
+        
+        const hourlyAgents = distributionCurve.values.map(val => {
+            return Math.ceil((val * peakAgents) / safeMax);
+        });
+        charts.positions.data.datasets[0].data = hourlyAgents;
+        charts.positions.update();
+    }
 
-    // Gráfico 2: Barras (Volume Semanal)
-    const ctxVol = document.getElementById('chartVolume').getContext('2d');
-    charts.volume = new Chart(ctxVol, {
-        type: 'bar',
-        data: {
-            labels: ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4'],
-            datasets: [{
-                label: 'Chamadas',
-                backgroundColor: '#d94fd9', // Roxo Neon
-                data: []
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } }
-        }
-    });
+    // Atualiza Barras
+    if (charts.volume) {
+        charts.volume.data.datasets[0].data = [baseVol];
+        charts.volume.data.datasets[1].data = [newVol];
+        charts.volume.update();
+    }
 
-    // Gráfico 3: Pizza (TME)
-    const ctxTme = document.getElementById('chartTME').getContext('2d');
-    charts.tme = new Chart(ctxTme, {
-        type: 'doughnut',
-        data: {
-            labels: ['Falado', 'Em Espera', 'Pós-atendimento'],
-            datasets: [{
-                data: [],
-                backgroundColor: ['#a64ca6', '#5b76f2', '#f5a623'], // Cores do tema
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { 
-                legend: { position: 'right', labels: { boxWidth: 10, color: '#fff' } } 
-            }
-        }
-    });
-}
-
-function updateCharts(agentes, volume, tme) {
-    // Simulação de distribuição dos dados calculados
-    
-    // 1. Atualiza Curva Intraday
-    // Cria um padrão de curva de atendimento e multiplica pelos agentes calculados
-    const padraoCurva = [0.5, 0.8, 1.0, 0.9, 0.7, 0.6, 0.3]; 
-    charts.positions.data.datasets[0].data = padraoCurva.map(f => Math.ceil(f * agentes));
-    charts.positions.update();
-
-    // 2. Atualiza Volume Semanal
-    const mediaSemanal = volume / 4;
-    charts.volume.data.datasets[0].data = [
-        mediaSemanal * 0.9, 
-        mediaSemanal * 1.1, 
-        mediaSemanal * 1.05, 
-        mediaSemanal * 0.95
-    ];
-    charts.volume.update();
-
-    // 3. Atualiza TME (Falado vs Espera vs ACW)
-    // Distribuição estimada: 70% Falado, 10% Espera, 20% ACW
-    charts.tme.data.datasets[0].data = [
-        tme * 0.70, 
-        tme * 0.10, 
-        tme * 0.20
-    ];
-    charts.tme.update();
+    // Atualiza Pizza
+    if (charts.tme) {
+        charts.tme.data.datasets[0].data = [
+            tmeTotal * 0.70, 
+            tmeTotal * 0.10, 
+            tmeTotal * 0.20
+        ];
+        charts.tme.update();
+    }
 }

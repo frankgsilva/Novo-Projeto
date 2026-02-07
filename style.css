@@ -6,7 +6,7 @@
 }
 
 body {
-    background-color: #0e0e0e; /* Fundo preto */
+    background-color: #0e0e0e; /* Fundo Preto */
     height: 100vh;
     padding: 20px;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -16,7 +16,7 @@ body {
     align-items: center;
 }
 
-/* --- Variáveis de Cores --- */
+/* --- Variáveis de Cores (Paleta Neon) --- */
 :root {
     --border-blue: #5b76f2;
     --border-grey: #7b7e8c;
@@ -37,21 +37,18 @@ body {
     display: flex;
     padding: var(--gap-size);
     gap: var(--gap-size);
-    transition: background-color 0.3s ease;
 }
 
 /* --- Sidebar (Esquerda) --- */
 .sidebar {
     width: 20%;
+    min-width: 250px;
     border: var(--thickness) solid var(--border-grey);
     padding: 15px;
     display: flex;
     flex-direction: column;
     gap: 15px;
-    transition: background-color 0.3s ease;
-}
-.sidebar:hover {
-    background-color: rgba(123, 126, 140, 0.1);
+    overflow-y: auto; /* Rolagem se a tela for pequena */
 }
 
 .sidebar h3 {
@@ -64,15 +61,23 @@ body {
 }
 
 /* Inputs da Sidebar */
+.input-section {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
 .input-group {
     display: flex;
     flex-direction: column;
     gap: 5px;
 }
+
 .input-group label {
     font-size: 0.8rem;
-    color: var(--neon-purple);
+    color: var(--neon-purple); /* Rótulos em Roxo Neon */
 }
+
 .input-group input {
     background: #1a1a1a;
     border: 1px solid var(--border-purple);
@@ -80,7 +85,9 @@ body {
     padding: 8px;
     border-radius: 4px;
     outline: none;
+    font-size: 0.9rem;
 }
+
 .input-group input:focus {
     border-color: var(--neon-purple);
     box-shadow: 0 0 5px var(--neon-purple);
@@ -95,9 +102,11 @@ body {
     font-weight: bold;
     cursor: pointer;
     transition: 0.3s;
+    text-transform: uppercase;
 }
 #btnCalc:hover {
     background: var(--neon-purple);
+    box-shadow: 0 0 10px rgba(217, 79, 217, 0.5);
 }
 
 /* --- Coluna Direita --- */
@@ -111,31 +120,23 @@ body {
 /* --- Header (Topo) --- */
 .header {
     height: 15%;
+    min-height: 80px;
     border: var(--thickness) solid var(--border-orange);
-    
-    /* FLEXBOX PARA SEPARAR TÍTULO E LOGO */
     display: flex;
-    justify-content: space-between; /* Empurra para as pontas */
-    align-items: center; /* Centraliza verticalmente */
-    padding: 0 30px; /* Margem interna */
-    
-    transition: background-color 0.3s ease;
-}
-.header:hover {
-    background-color: rgba(245, 166, 35, 0.1);
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 30px;
 }
 
-/* Estilo do Título */
 .header-title {
     border: 2px solid var(--border-purple);
     padding: 10px 25px;
     font-weight: bold;
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     letter-spacing: 1px;
     box-shadow: 3px 3px 0px rgba(166, 76, 166, 0.3);
 }
 
-/* Estilo do Logo (Na direita) */
 .header-logo {
     border: 2px solid var(--border-purple);
     padding: 15px 30px;
@@ -152,32 +153,21 @@ body {
     border: var(--thickness) solid var(--border-green);
     padding: var(--gap-size);
     
-    /* GRID 2x2 */
+    /* Grid 2x2 */
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
     gap: var(--gap-size);
-    transition: background-color 0.3s ease;
-}
-.content-area:hover {
-    background-color: rgba(47, 168, 109, 0.1);
 }
 
-/* --- Blocos Roxos (Gráficos) --- */
+/* --- Blocos dos Gráficos --- */
 .grid-box {
     border: var(--thickness) solid var(--border-purple);
-    position: relative;
     padding: 15px;
     display: flex;
     flex-direction: column;
-    transition: background-color 0.3s ease;
-    overflow: hidden;
-}
-
-/* Efeito Hover Individual */
-.grid-box:hover {
-    background-color: rgba(166, 76, 166, 0.2);
-    z-index: 1; /* Traz para frente */
+    overflow: hidden; /* Importante para o gráfico não vazar */
+    min-height: 0;    /* Importante para o Grid respeitar o tamanho */
 }
 
 .grid-box h4 {
@@ -187,40 +177,47 @@ body {
     color: #eee;
 }
 
+/* Container do Canvas (Gráfico) */
 .canvas-container {
     flex: 1;
     position: relative;
     width: 100%;
+    min-height: 150px; /* Altura mínima garantida */
 }
 
 /* --- Resultados --- */
 .results-box {
     justify-content: center;
 }
+
 .kpi-container {
     display: flex;
     flex-direction: column;
     gap: 15px;
     width: 100%;
-    padding: 0 10px;
+    padding: 0 20px;
 }
+
 .kpi-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid #333;
-    padding-bottom: 5px;
+    padding-bottom: 8px;
 }
+
 .kpi-label {
     color: #aaa;
     font-size: 0.9rem;
 }
+
 .kpi-value {
     font-size: 1.2rem;
     font-weight: bold;
     color: var(--neon-purple);
 }
+
 .highlight {
-    color: var(--border-green);
+    color: var(--border-green); /* Verde Neon */
     font-size: 1.4rem;
 }
