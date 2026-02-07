@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Capacity</title>
+    <title>Simulador WFM Real vs Necessário</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -12,85 +12,123 @@
     <div class="main-container">
         
         <aside class="sidebar">
-            <h3>Premissas</h3>
             
-            <div class="input-group">
-                <label>Volume Mensal</label>
-                <input type="number" id="volumeInput" value="50000">
+            <div class="input-section-header">Quadro Atual</div>
+            <div class="input-section">
+                <div class="input-group">
+                    <label>HC Ativo Hoje (Pessoas)</label>
+                    <input type="number" id="currentHcInput" value="47" style="border-color: #f5a623;">
+                </div>
             </div>
 
-            <div class="input-group">
-                <label>TME (segundos)</label>
-                <input type="number" id="tmeInput" value="180">
+            <div class="input-section-header">Demanda (Forecast)</div>
+            <div class="input-section">
+                <div class="input-group">
+                    <label>BID (Total do Ano)</label>
+                    <input type="number" id="inputBidVol" value="108000">
+                </div>
+                <div class="input-group">
+                    <label>Ramp-up Mensal BID (%)</label>
+                    <input type="number" id="inputGrowthBid" value="5">
+                </div>
+                <hr class="separator">
+                <div class="input-group">
+                    <label>Cresc. Carteira (%)</label>
+                    <input type="number" id="inputGrowthCarteira" value="10">
+                </div>
             </div>
 
-            <div class="input-group">
-                <label>Ocupação Alvo (%)</label>
-                <input type="number" id="occupancyInput" value="85">
+            <div class="input-section-header">Eficiência & Nível de Serviço</div>
+            <div class="input-section">
+                <div class="input-group">
+                    <label>TMA Alvo (segundos)</label>
+                    <input type="number" id="tmeInput" value="350">
+                </div>
+                <div class="input-group">
+                    <label>Meta Nível de Serviço (%)</label>
+                    <input type="number" id="slInput" value="80">
+                </div>
+                <div class="input-group">
+                    <label>Tempo Espera (seg)</label>
+                    <input type="number" id="targetTimeInput" value="20">
+                </div>
+                <div class="input-group">
+                    <label>Ocupação Máxima (%)</label>
+                    <input type="number" id="occupancyInput" value="85">
+                </div>
             </div>
 
-            <div class="input-group">
-                <label>Nível de Serviço (%)</label>
-                <input type="number" id="slInput" value="80">
+            <div class="input-section-header">Capacidade (HC)</div>
+            <div class="input-section">
+                <div class="input-group">
+                    <label>Carga Horária (h)</label>
+                    <input type="number" id="contractHoursInput" value="180">
+                </div>
+                <div class="input-group">
+                    <label>Shrinkage Planejado (%)</label>
+                    <input type="number" id="shrinkageInput" value="20">
+                </div>
+                <div class="input-group">
+                    <label>Absenteísmo (%)</label>
+                    <input type="number" id="absenteeismInput" value="5">
+                </div>
+                <div class="input-group" style="margin-top: 5px;">
+                    <label>Custo por PA (R$)</label>
+                    <input type="number" id="costInput" value="3500">
+                </div>
             </div>
 
-            <div class="input-group">
-                <label>Tempo Espera (seg)</label>
-                <input type="number" id="targetTimeInput" value="20">
-            </div>
-
-            <div class="input-group">
-                <label>Custo por PA (R$)</label>
-                <input type="number" id="costInput" value="3500">
-            </div>
-
-            <button id="btnCalc">CALCULAR</button>
+            <button id="btnCalc">CALCULAR CENÁRIOS</button>
         </aside>
 
         <div class="right-column">
             <header class="header">
-                <div class="header-title">SIMULADOR DE CAPACITY</div>
+                <div class="header-title">SIMULADOR DE CAPACITY & GAP ANALYSIS</div>
                 <div class="header-logo">LOGO</div>
             </header>
 
             <main class="content-area">
                 
                 <div class="grid-box graph-box">
-                    <h4>Curva Intraday</h4>
+                    <h4>Quadro Atual vs Necessidade (Headcount)</h4>
                     <div class="canvas-container">
                         <canvas id="chartPositions"></canvas>
                     </div>
                 </div>
 
                 <div class="grid-box graph-box">
-                    <h4>Volume de Chamadas</h4>
+                    <h4>Volume Projetado (Base + BID)</h4>
                     <div class="canvas-container">
                         <canvas id="chartVolume"></canvas>
                     </div>
                 </div>
 
                 <div class="grid-box graph-box">
-                    <h4>Composição do TME</h4>
+                    <h4>Distribuição de Horas</h4>
                     <div class="canvas-container">
-                        <canvas id="chartTME"></canvas>
+                        <canvas id="chartTMA"></canvas>
                     </div>
                 </div>
 
                 <div class="grid-box results-box">
-                    <h4>Estimativa Final</h4>
+                    <h4>Análise de Gap (Média Mensal)</h4>
                     
                     <div class="kpi-container">
                         <div class="kpi-item">
-                            <span class="kpi-label">👥 Headcount</span>
-                            <span class="kpi-value" id="resHeadcount">0</span>
+                            <span class="kpi-label" style="color:#f5a623">🚧 HC Atual</span>
+                            <span class="kpi-value" id="resCurrentHC" style="color:#f5a623">0</span>
                         </div>
                         <div class="kpi-item">
-                            <span class="kpi-label">☎️ PAs Logadas</span>
-                            <span class="kpi-value" id="resPas">0</span>
+                            <span class="kpi-label">🎯 HC Necessário (Ideal)</span>
+                            <span class="kpi-value" id="resRequiredHC">0</span>
+                        </div>
+                         <div class="kpi-item">
+                            <span class="kpi-label">⚖️ Gap / Sobra</span>
+                            <span class="kpi-value" id="resGap">0</span>
                         </div>
                         <div class="kpi-item">
-                            <span class="kpi-label">💲 Custo Mensal</span>
-                            <span class="kpi-value highlight" id="resTotalCost">R$ 0,00</span>
+                            <span class="kpi-label highlight-label">💲 Variação Custo</span>
+                            <span class="kpi-value highlight" id="resCostGap">R$ 0,00</span>
                         </div>
                     </div>
                 </div>
@@ -99,6 +137,7 @@
         </div>
     </div>
 
+    <script src="database.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
