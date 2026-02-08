@@ -1,0 +1,90 @@
+/* DESIGN SYSTEM COMMAND CENTER */
+:root {
+    --primary-color: #2563eb;
+    --dark-sidebar: #1e293b;
+    --bg-light: #f8fafc;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-light);
+    color: #334155;
+    overflow-x: hidden;
+}
+
+/* SIDEBAR */
+.sidebar-dark {
+    width: 280px;
+    height: 100vh;
+    background-color: var(--dark-sidebar);
+    color: #94a3b8;
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+}
+.sidebar-header {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: white;
+    border-bottom: 1px solid #334155;
+}
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+.input-group-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-top: 15px;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+    color: #64748b;
+}
+
+/* INPUTS DARK */
+.form-control-dark {
+    background-color: #334155;
+    border: 1px solid #475569;
+    color: #fff;
+    font-size: 0.85rem;
+    padding: 6px 10px;
+}
+.form-control-dark:focus {
+    background-color: #475569;
+    border-color: var(--primary-color);
+    box-shadow: none;
+    color: #fff;
+}
+
+/* MAIN CONTENT */
+#page-content-wrapper {
+    margin-left: 280px;
+    width: calc(100% - 280px);
+}
+
+/* KPIS */
+.icon-shape {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+/* CHARTS */
+.chart-container {
+    position: relative;
+    width: 100%;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #1e293b; }
+::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
