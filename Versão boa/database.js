@@ -1,7 +1,7 @@
 // DATABASE.JS - DADOS HISTÓRICOS WFM
 
 // Curva Intraday de Chamadas (08h as 20h - 13 horas)
-// Distribuição % do volume diário
+// Representa a distribuição % do volume do dia em cada hora
 const curveSAC = [
     0.04, // 08:00
     0.08, // 09:00

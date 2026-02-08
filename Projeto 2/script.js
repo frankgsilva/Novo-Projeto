@@ -1,356 +1,270 @@
-// Configurações Globais do Chart.js
+// Configurações Globais
 Chart.defaults.font.family = "'Inter', sans-serif";
 Chart.defaults.color = '#64748b';
-Chart.defaults.scale.grid.color = '#f1f5f9';
+Chart.defaults.scale.grid.color = '#e2e8f0';
+// ISSO PREVINE O SCROLL INFINITO GLOBALMENTE
+Chart.defaults.maintainAspectRatio = false; 
 
-let charts = {}; 
+let charts = {};
 
 window.onload = function() {
-    console.log("Sistema WFM Command Center Iniciado.");
+    console.log("Sistema Iniciado.");
     
-    // Inicializa gráficos apenas se o canvas existir
-    if(document.getElementById('chartPositions')) initCharts();
-    
-    // Força um cálculo inicial
+    // Verifica se o database carregou
+    if (typeof db_historico === 'undefined') {
+        console.error("ERRO CRÍTICO: database.js não carregou.");
+        alert("Erro: database.js não encontrado.");
+        return;
+    }
+
+    // Tenta calcular imediatamente
     calculateAndRender();
     
-    // Event Listener
-    document.getElementById('btnCalc').addEventListener('click', calculateAndRender);
+    const btn = document.getElementById('btnCalc');
+    if(btn) btn.addEventListener('click', calculateAndRender);
 };
 
-// --- MOTOR MATEMÁTICO ERLANG C (ESTABILIZADO) ---
-// Evita estouro de memória com fatorial de números grandes
-
+// --- MOTOR ERLANG C ---
 function calculateErlangC(traffic, agents) {
-    if (agents <= traffic) return 1.0; // Sobrecarga total
-    
-    // Método Estável: Calcula os termos iterativamente
-    // Fórmula: ErlangC = 1 / (1 + (1-rho) * (n! / A^n) * Sum(A^i/i!))
-    
+    if (agents <= traffic) return 1.0;
     let ratio = traffic / agents;
-    let invBlock = 1.0; // Este é o termo acumulador
-    
-    for (let i = 1; i <= agents; i++) {
-        invBlock = 1 + invBlock * (i / traffic);
-    }
-    
-    // Probabilidade de espera P(Wait)
+    let invBlock = 1.0;
+    for (let i = 1; i <= agents; i++) invBlock = 1 + invBlock * (i / traffic);
     let pWait = 1 / (invBlock * traffic * (1 - ratio) / agents + 1);
-    
-    // Cap em 1.0
     return Math.min(Math.max(pWait, 0), 1);
 }
 
 function calculateServiceLevel(traffic, agents, targetTime, aht) {
     let pWait = calculateErlangC(traffic, agents);
-    // SL = 1 - (P(Wait) * e^(-(N-A) * (TargetTime / AHT)))
     let sl = 1 - (pWait * Math.exp(-(agents - traffic) * (targetTime / aht)));
     return Math.max(0, Math.min(sl, 1));
 }
 
 function getRequiredAgents(traffic, slTarget, targetTime, aht, maxOcc) {
     if (traffic <= 0) return { agents: 0, occupancy: 0 };
-    
-    // Começa com N = A + 1
     let agents = Math.floor(traffic) + 1;
-    
-    // Loop de segurança (Max 500 agentes para evitar travamento)
-    let limit = agents + 500;
-
+    let limit = agents + 1000; 
     while (agents < limit) {
         let occ = traffic / agents;
-        
-        // 1. Restrição de Ocupação
-        if (occ > maxOcc) {
-            agents++;
-            continue;
-        }
-
-        // 2. Restrição de Nível de Serviço
+        if (occ > maxOcc) { agents++; continue; }
         let currentSL = calculateServiceLevel(traffic, agents, targetTime, aht);
-        if (currentSL >= slTarget) {
-            return { agents: agents, occupancy: occ, sl: currentSL };
-        }
-
+        if (currentSL >= slTarget) return { agents: agents, occupancy: occ, sl: currentSL };
         agents++;
     }
     return { agents: agents, occupancy: traffic/agents, sl: 0 };
 }
 
-function initCharts() {
-    // 1. GAP COMBO CHART
-    const ctxPos = document.getElementById('chartPositions').getContext('2d');
-    charts.positions = new Chart(ctxPos, {
-        type: 'bar',
-        data: {
-            labels: [],
-            datasets: [
-                {
-                    label: 'Gap (HC)',
-                    type: 'bar',
-                    backgroundColor: (ctx) => {
-                        const v = ctx.raw;
-                        return v > 0 ? '#ef4444' : '#10b981'; // Vermelho se falta (>0), Verde se sobra (<0)
-                    },
-                    data: [],
-                    borderRadius: 4,
-                    order: 2
-                },
-                {
-                    label: 'HC Necessário',
-                    type: 'line',
-                    borderColor: '#2563eb', // Azul Principal
-                    borderWidth: 3,
-                    tension: 0.4,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#fff',
-                    data: [],
-                    order: 0
-                },
-                {
-                    label: 'HC Atual',
-                    type: 'line',
-                    borderColor: '#f59e0b', // Laranja
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    pointRadius: 0,
-                    data: [],
-                    order: 1
-                }
-            ]
-        },
+// --- FUNÇÃO DE CRIAÇÃO SEGURA DE GRÁFICOS ---
+function getOrCreateChart(id, type, config) {
+    const canvas = document.getElementById(id);
+    if (!canvas) {
+        console.warn(`Canvas ${id} não encontrado.`);
+        return null;
+    }
+
+    // Se já existe um gráfico nesta instância, destrua-o
+    if (charts[id]) {
+        charts[id].destroy();
+    }
+
+    // Cria novo gráfico
+    charts[id] = new Chart(canvas.getContext('2d'), {
+        type: type,
+        data: { labels: [], datasets: [] },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { display: true } },
-            scales: { y: { beginAtZero: true } }
+            ...config
         }
     });
-
-    // 2. INTRADAY LINE
-    const ctxIntra = document.getElementById('chartIntraday').getContext('2d');
-    charts.intraday = new Chart(ctxIntra, {
-        type: 'line',
-        data: {
-            labels: ['08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'],
-            datasets: [{
-                label: 'Agentes Hora',
-                borderColor: '#8b5cf6', // Roxo
-                backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                fill: true,
-                tension: 0.4,
-                borderWidth: 2,
-                pointRadius: 0,
-                data: []
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { display: false }, x: { grid: { display: false } } }
-        }
-    });
-
-    // 3. PIE CHART
-    const ctxTMA = document.getElementById('chartTMA').getContext('2d');
-    charts.tma = new Chart(ctxTMA, {
-        type: 'doughnut',
-        data: {
-            labels: ['Produtivo', 'Ineficiência', 'Perdas', 'Ociosidade'],
-            datasets: [{
-                data: [],
-                backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#334155'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            cutout: '70%',
-            plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: {size: 10} } } }
-        }
-    });
-
-    // 4. VOLUME
-    const ctxVol = document.getElementById('chartVolume').getContext('2d');
-    charts.volume = new Chart(ctxVol, {
-        type: 'bar',
-        data: {
-            labels: [],
-            datasets: [
-                { label: 'Base', backgroundColor: '#cbd5e1', data: [] },
-                { label: 'BID', backgroundColor: '#3b82f6', data: [] }
-            ]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true } }
-        }
-    });
+    return charts[id];
 }
 
+// --- CÁLCULO E RENDERIZAÇÃO ---
 function calculateAndRender() {
-    // --- 1. CAPTURA DE INPUTS ---
-    const getVal = (id) => parseFloat(document.getElementById(id).value) || 0;
+    console.log("Calculando...");
+    
+    // Helpers
+    const getVal = (id) => {
+        const el = document.getElementById(id);
+        return el ? (parseFloat(el.value) || 0) : 0;
+    };
 
+    // Inputs
     const currentHc = getVal('currentHcInput');
     const bidVolTotalAno = getVal('inputBidVol');
     const bidMonthlyGrowth = getVal('inputGrowthBid') / 100;
     const growthCarteira = getVal('inputGrowthCarteira') / 100;
     
-    // WFM Parameters
     const tmaInput = getVal('tmeInput');
     const slTarget = getVal('slInput') / 100;
     const targetTime = getVal('targetTimeInput');
     const maxOccupancy = getVal('occupancyInput') / 100;
     
-    // Capacity
     const contractHours = getVal('contractHoursInput');
     const shrinkage = getVal('shrinkageInput') / 100;
     const absenteeism = getVal('absenteeismInput') / 100;
     const totalShrinkage = shrinkage + absenteeism;
-    
     const cost = getVal('costInput');
-    const rosteringSafety = 1.15; // Ineficiência de escala
+    const rosteringSafety = 1.15;
 
-    // --- 2. PREPARAÇÃO DO BID ---
+    // Lógica Financeira (BID)
     let baseBidMonth0 = 0;
     if (bidVolTotalAno > 0) {
         if (bidMonthlyGrowth <= 0) baseBidMonth0 = bidVolTotalAno / 12;
         else baseBidMonth0 = (bidVolTotalAno * bidMonthlyGrowth) / (Math.pow(1 + bidMonthlyGrowth, 12) - 1);
     }
 
-    // --- 3. LOOP MENSAL ---
-    let labelsMes = [];
-    let dataBase = [], dataBid = [];
-    let dataReqHC = [], dataCurrentHC = [], dataGap = [];
-    let somaIntraday = new Array(13).fill(0);
-    
-    let totalReqHC = 0, totalPas = 0, totalWeightedSL = 0;
+    // Arrays de Dados
+    let labels = [], dBase = [], dBid = [], dReqHC = [], dCurrHC = [], dGap = [];
+    let somaIntra = new Array(13).fill(0);
+    let totalReqHC = 0, totalPas = 0, totalSL = 0;
 
-    // Garante que db_historico existe (Caso o database.js falhe)
-    const safeDB = (typeof db_historico !== 'undefined') ? db_historico : [];
-    
-    safeDB.forEach((mesData, index) => {
-        labelsMes.push(mesData.mes);
-
-        // A. Volume Forecast
-        let volBidMes = baseBidMonth0 * Math.pow(1 + bidMonthlyGrowth, index);
-        let totalCli = mesData.yfrank + mesData.cmari;
-        let cr = mesData.cr || (totalCli > 0 ? mesData.vol / totalCli : 0);
-        let volBaseProj = (totalCli * (1 + growthCarteira)) * cr;
+    db_historico.forEach((m, i) => {
+        labels.push(m.mes);
         
-        let totalVolMes = volBaseProj + volBidMes;
-        let finalVolSac = totalVolMes * 0.27; // Split SAC
-        let finalVolAjuda = totalVolMes * 0.73; // Split Voz
+        let volBid = baseBidMonth0 * Math.pow(1 + bidMonthlyGrowth, i);
+        let cliProj = (m.yfrank + m.cmari) * (1 + growthCarteira);
+        let cr = m.cr || 0.05;
+        let volBase = cliProj * cr;
+        
+        dBase.push(Math.round(volBase));
+        dBid.push(Math.round(volBid));
+        dCurrHC.push(currentHc);
 
-        dataBase.push(Math.round(volBaseProj));
-        dataBid.push(Math.round(volBidMes));
-        dataCurrentHC.push(currentHc);
-
-        // B. Dimensionamento Erlang C (Loop Horário)
-        let diasUteis = 22;
-        let volDiaSac = finalVolSac / diasUteis;
-        let volDiaAjuda = finalVolAjuda / diasUteis;
+        let totalVol = volBase + volBid;
+        let dias = 22;
+        let volDia = totalVol / dias;
+        
+        let sacCalls = volDia * 0.27; 
+        let vozCalls = volDia * 0.73;
+        
         let agentsNeededDay = 0;
-        let trafficTotalDay = 0;
-
-        // Verifica se curveSAC existe, senão usa padrão
-        const safeCurveSAC = (typeof curveSAC !== 'undefined') ? curveSAC : [0.05, 0.08, 0.12, 0.1, 0.07, 0.08, 0.1, 0.13, 0.11, 0.1, 0.06, 0.0, 0.0];
 
         for(let h=0; h<13; h++) {
-            // SAC
-            let callsSac = volDiaSac * (safeCurveSAC[h] || 0);
-            let trafficSac = (callsSac * tmaInput) / 3600;
-            let reqSac = getRequiredAgents(trafficSac, slTarget, targetTime, tmaInput, maxOccupancy);
+            let curveVal = (typeof curveSAC !== 'undefined') ? (curveSAC[h] || 0) : 0.07;
+            
+            let distSac = sacCalls * curveVal;
+            let tfSac = (distSac * tmaInput) / 3600;
+            let reqSac = getRequiredAgents(tfSac, slTarget, targetTime, tmaInput, maxOccupancy);
 
-            // Voz (Curva Hardcoded segura)
-            let curveVozVal = (h === 0) ? 0 : [0.09, 0.11, 0.10, 0.08, 0.08, 0.08, 0.10, 0.11, 0.11, 0.08, 0.06, 0.00][h-1] || 0;
-            let callsVoz = volDiaAjuda * curveVozVal;
-            let trafficVoz = (callsVoz * tmaInput) / 3600;
-            let reqVoz = getRequiredAgents(trafficVoz, slTarget, targetTime, tmaInput, maxOccupancy);
+            let vozCurve = [0.09, 0.11, 0.10, 0.08, 0.08, 0.08, 0.10, 0.11, 0.11, 0.08, 0.06, 0.0, 0.0];
+            let distVoz = vozCalls * (vozCurve[h] || 0);
+            let tfVoz = (distVoz * tmaInput) / 3600;
+            let reqVoz = getRequiredAgents(tfVoz, slTarget, targetTime, tmaInput, maxOccupancy);
 
-            let totalAgentsHour = reqSac.agents + reqVoz.agents;
-            agentsNeededDay += totalAgentsHour;
-            somaIntraday[h] += totalAgentsHour;
-            trafficTotalDay += (trafficSac + trafficVoz);
+            let totalH = reqSac.agents + reqVoz.agents;
+            agentsNeededDay += totalH;
+            somaIntra[h] += totalH;
         }
 
-        // C. Resultados Mensais
-        let horasLogadasMes = agentsNeededDay * diasUteis;
-        let horasReaisNecessarias = horasLogadasMes * rosteringSafety;
-        let horasLiquidasAgente = contractHours * (1 - totalShrinkage);
-        
-        // Evita divisão por zero
-        let hcMensal = horasLiquidasAgente > 0 ? horasReaisNecessarias / horasLiquidasAgente : 0;
-        
-        dataReqHC.push(hcMensal);
-        dataGap.push(hcMensal - currentHc); // Positivo = Falta
-        
-        totalReqHC += hcMensal;
-        totalPas += (agentsNeededDay / 13); // Média de PAs simultâneas
+        let horasLogadas = agentsNeededDay * dias;
+        let horasReais = horasLogadas * rosteringSafety;
+        let horasLiqAgente = contractHours * (1 - totalShrinkage);
+        let hc = horasLiqAgente > 0 ? horasReais / horasLiqAgente : 0;
 
-        // SL Estimado com HC Atual (Regra de 3 simples para KPI macro)
-        // Se preciso de 100 e tenho 80, meu SL cai.
-        // Aproximação: Se HC Atual >= HC Necessário, SL = Meta. Senão, cai exponencialmente.
-        let ratioHC = currentHc / (hcMensal || 1);
-        let estimatedSL = ratioHC >= 1 ? slTarget : slTarget * Math.pow(ratioHC, 3); // Penalidade por falta de gente
-        totalWeightedSL += estimatedSL;
+        dReqHC.push(hc);
+        dGap.push(hc - currentHc);
+        
+        totalReqHC += hc;
+        totalPas += (agentsNeededDay / 13);
+        
+        let ratio = currentHc / (hc || 1);
+        let estSL = ratio >= 1 ? slTarget : slTarget * Math.pow(ratio, 3);
+        totalSL += estSL;
     });
 
-    // --- 4. ATUALIZAÇÃO UI ---
+    // Totais e KPIs
     let avgReqHC = Math.ceil(totalReqHC / 12);
-    let avgPas = Math.ceil(totalPas / 12);
-    let avgProjSL = (totalWeightedSL / 12) * 100;
+    let avgGap = Math.round(avgReqHC - currentHc);
+    let avgCost = avgGap * cost;
+    let avgSLFinal = (totalSL / 12) * 100;
+    let avgPasFinal = Math.ceil(totalPas / 12);
+    let prodLiq = Math.round(contractHours * (1 - totalShrinkage));
+
+    const set = (id, txt, cls) => {
+        const el = document.getElementById(id);
+        if(el) { el.innerText = txt; if(cls) el.className = `fw-bold mb-0 ${cls}`; }
+    };
+
+    set('resPas', avgPasFinal, 'text-info');
     
-    let gap = Math.round(avgReqHC - currentHc);
-    let costGap = gap * cost;
-    let netHours = Math.round(contractHours * (1 - totalShrinkage));
-
-    // KPIs Text
-    document.getElementById('resGap').innerText = gap > 0 ? `-${gap}` : `+${Math.abs(gap)}`;
-    document.getElementById('resGap').className = gap > 0 ? "fw-bold mb-0 text-danger" : "fw-bold mb-0 text-success";
-    document.getElementById('resGapText').innerText = gap > 0 ? "Pessoas Faltando" : "Pessoas Sobrando";
-
-    document.getElementById('resCostGap').innerText = costGap.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    document.getElementById('resCostGap').className = gap > 0 ? "fw-bold mb-0 text-danger" : "fw-bold mb-0 text-success";
-
-    document.getElementById('resProjSL').innerText = avgProjSL.toFixed(1) + "%";
-    document.getElementById('resProjSL').className = avgProjSL < (slTarget*100 - 5) ? "fw-bold mb-0 text-danger" : "fw-bold mb-0 text-success";
-
-    document.getElementById('resProdTime').innerText = netHours + "h";
-
-    // Atualiza Gráficos
-    let rosteringLoss = (1 - (1/rosteringSafety));
-    let curveDisplay = somaIntraday.map(v => Math.ceil(v / 12));
+    let gapColor = avgGap > 0 ? 'text-danger' : 'text-success';
+    set('resGap', avgGap > 0 ? `-${avgGap}` : `+${Math.abs(avgGap)}`, gapColor);
     
-    updateCharts(labelsMes, dataBase, dataBid, dataCurrentHC, dataReqHC, dataGap, curveDisplay, shrinkage, absenteeism, rosteringLoss);
-}
+    if(document.getElementById('resGapText')) {
+        document.getElementById('resGapText').innerText = avgGap > 0 ? "Deficit de Pessoas" : "Excesso de Pessoas";
+    }
 
-function updateCharts(labels, base, bid, currentHC, reqHC, gap, curve, shrink, abs, rosteringLoss) {
-    // Labels globais
-    charts.positions.data.labels = labels;
-    charts.volume.data.labels = labels;
+    set('resCostGap', avgCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), gapColor);
+    
+    let slColor = avgSLFinal < (slTarget*100 - 5) ? 'text-danger' : 'text-success';
+    set('resProjSL', avgSLFinal.toFixed(1) + "%", slColor);
+    
+    set('resProdTime', prodLiq + "h", 'text-secondary');
 
-    // 1. GAP
-    charts.positions.data.datasets[0].data = gap;
-    charts.positions.data.datasets[1].data = reqHC;
-    charts.positions.data.datasets[2].data = currentHC;
-    charts.positions.update();
+    // --- ATUALIZAÇÃO DOS GRÁFICOS ---
+    
+    // 1. Chart Headcount (Combo)
+    const cPos = getOrCreateChart('chartPositions', 'bar', {
+        interaction: { mode: 'index', intersect: false },
+        scales: { y: { beginAtZero: true } }
+    });
+    if(cPos) {
+        cPos.data.labels = labels;
+        cPos.data.datasets = [
+            { label: 'Gap', data: dGap, backgroundColor: dGap.map(v => v > 0 ? '#ef4444' : '#10b981'), borderRadius: 4, order: 2 },
+            { label: 'Necessário', data: dReqHC, type: 'line', borderColor: '#2563eb', borderWidth: 3, order: 0 },
+            { label: 'Atual', data: dCurrHC, type: 'line', borderColor: '#f59e0b', borderWidth: 2, borderDash: [5,5], order: 1 }
+        ];
+        cPos.update();
+    }
 
-    // 2. Volume
-    charts.volume.data.datasets[0].data = base;
-    charts.volume.data.datasets[1].data = bid;
-    charts.volume.update();
+    // 2. Chart Volume (Forecast)
+    const cVol = getOrCreateChart('chartVolume', 'bar', {
+        scales: { x: { stacked: true }, y: { stacked: true } }
+    });
+    if(cVol) {
+        cVol.data.labels = labels;
+        cVol.data.datasets = [
+            { label: 'Base', data: dBase, backgroundColor: '#cbd5e1' },
+            { label: 'BID', data: dBid, backgroundColor: '#3b82f6' }
+        ];
+        cVol.update();
+    }
 
-    // 3. Intraday
-    charts.intraday.data.datasets[0].data = curve;
-    charts.intraday.update();
+    // 3. Chart Intraday (PAs)
+    const cIntra = getOrCreateChart('chartIntraday', 'line', {
+        plugins: { legend: { display: false } },
+        scales: { x: { grid: { display: false } } }
+    });
+    if(cIntra) {
+        cIntra.data.labels = ['08','09','10','11','12','13','14','15','16','17','18','19','20'];
+        cIntra.data.datasets = [{ 
+            label: 'Agentes', 
+            data: somaIntra.map(v => Math.ceil(v/12)), 
+            borderColor: '#8b5cf6', 
+            backgroundColor: 'rgba(139, 92, 246, 0.1)', 
+            fill: true 
+        }];
+        cIntra.update();
+    }
 
-    // 4. Pizza
-    let totalLoss = shrink + abs;
-    let operational = Math.max(0, 1 - (totalLoss + rosteringLoss));
-    charts.tma.data.datasets[0].data = [operational*100, rosteringLoss*100, totalLoss*100, 0];
-    charts.tma.update();
+    // 4. Chart Cost Composition (TMA)
+    const cTMA = getOrCreateChart('chartTMA', 'doughnut', {
+        cutout: '75%',
+        plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: {size: 10} } } }
+    });
+    if(cTMA) {
+        let roster = 1 - (1/rosteringSafety);
+        let totalLoss = shrinkage + absenteeism;
+        let op = Math.max(0, 1 - (totalLoss + roster));
+        cTMA.data.labels = ['Produtivo', 'Ineficiência', 'Perdas', 'Ociosidade'];
+        cTMA.data.datasets = [{
+            data: [op*100, roster*100, totalLoss*100, 0],
+            backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#334155'],
+            borderWidth: 0
+        }];
+        cTMA.update();
+    }
 }
