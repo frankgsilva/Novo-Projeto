@@ -1,256 +1,270 @@
-// Configuração Global
-Chart.defaults.color = '#ccc';
-Chart.defaults.borderColor = '#333';
-let charts = {}; 
+// Configurações Globais
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.color = '#64748b';
+Chart.defaults.scale.grid.color = '#e2e8f0';
+// ISSO PREVINE O SCROLL INFINITO GLOBALMENTE
+Chart.defaults.maintainAspectRatio = false; 
+
+let charts = {};
 
 window.onload = function() {
-    console.log("Sistema WFM Gap Analysis Iniciado.");
-    initCharts();
+    console.log("Sistema Iniciado.");
+    
+    // Verifica se o database carregou
+    if (typeof db_historico === 'undefined') {
+        console.error("ERRO CRÍTICO: database.js não carregou.");
+        alert("Erro: database.js não encontrado.");
+        return;
+    }
+
+    // Tenta calcular imediatamente
     calculateAndRender();
-    document.getElementById('btnCalc').addEventListener('click', calculateAndRender);
+    
+    const btn = document.getElementById('btnCalc');
+    if(btn) btn.addEventListener('click', calculateAndRender);
 };
 
-// --- ERLANG C MATH ---
-function factorial(n) {
-    if (n === 0 || n === 1) return 1;
-    let r = 1;
-    for (let i = 2; i <= n; i++) r *= i;
-    return r;
+// --- MOTOR ERLANG C ---
+function calculateErlangC(traffic, agents) {
+    if (agents <= traffic) return 1.0;
+    let ratio = traffic / agents;
+    let invBlock = 1.0;
+    for (let i = 1; i <= agents; i++) invBlock = 1 + invBlock * (i / traffic);
+    let pWait = 1 / (invBlock * traffic * (1 - ratio) / agents + 1);
+    return Math.min(Math.max(pWait, 0), 1);
 }
 
-function calculateErlangC(traffic, agents) {
-    let powerTraffic = Math.pow(traffic, agents) / factorial(agents);
-    let sum = 0;
-    for (let i = 0; i < agents; i++) sum += Math.pow(traffic, i) / factorial(i);
-    return powerTraffic / (sum + (powerTraffic * (agents / (agents - traffic))));
+function calculateServiceLevel(traffic, agents, targetTime, aht) {
+    let pWait = calculateErlangC(traffic, agents);
+    let sl = 1 - (pWait * Math.exp(-(agents - traffic) * (targetTime / aht)));
+    return Math.max(0, Math.min(sl, 1));
 }
 
 function getRequiredAgents(traffic, slTarget, targetTime, aht, maxOcc) {
     if (traffic <= 0) return { agents: 0, occupancy: 0 };
-    let agents = Math.ceil(traffic) + 1;
-    while (true) {
+    let agents = Math.floor(traffic) + 1;
+    let limit = agents + 1000; 
+    while (agents < limit) {
         let occ = traffic / agents;
         if (occ > maxOcc) { agents++; continue; }
-        
-        let pWait = calculateErlangC(traffic, agents);
-        let serviceLevel = 1 - (pWait * Math.exp(-(agents - traffic) * (targetTime / aht)));
-        
-        if (serviceLevel >= slTarget) return { agents: agents, occupancy: occ };
+        let currentSL = calculateServiceLevel(traffic, agents, targetTime, aht);
+        if (currentSL >= slTarget) return { agents: agents, occupancy: occ, sl: currentSL };
         agents++;
-        if (agents > traffic * 10 && agents > 5) return { agents: agents, occupancy: 0 }; 
     }
+    return { agents: agents, occupancy: traffic/agents, sl: 0 };
 }
 
-function initCharts() {
-    // 1. GAP Analysis (HC Atual vs Necessário)
-    const ctxPos = document.getElementById('chartPositions').getContext('2d');
-    charts.positions = new Chart(ctxPos, {
-        type: 'line',
-        data: {
-            labels: db_historico.map(d => d.mes),
-            datasets: [
-                {
-                    label: 'HC Atual (Fixo)',
-                    borderColor: '#f5a623', // Laranja
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    pointRadius: 0,
-                    data: [] 
-                },
-                {
-                    label: 'HC Necessário (Erlang)',
-                    borderColor: '#d94fd9', // Roxo
-                    backgroundColor: 'rgba(217, 79, 217, 0.1)',
-                    borderWidth: 3,
-                    tension: 0.3,
-                    fill: true,
-                    data: [] 
-                }
-            ]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: true, labels: { color: '#fff' } } },
-            scales: { y: { beginAtZero: true } }
-        }
-    });
+// --- FUNÇÃO DE CRIAÇÃO SEGURA DE GRÁFICOS ---
+function getOrCreateChart(id, type, config) {
+    const canvas = document.getElementById(id);
+    if (!canvas) {
+        console.warn(`Canvas ${id} não encontrado.`);
+        return null;
+    }
 
-    // 2. Barras (Unificado)
-    const ctxVol = document.getElementById('chartVolume').getContext('2d');
-    charts.volume = new Chart(ctxVol, {
-        type: 'bar',
-        data: {
-            labels: db_historico.map(d => d.mes),
-            datasets: [
-                { label: 'Volume Base', backgroundColor: '#5b76f2', data: [] },
-                { label: 'BID', backgroundColor: '#2fa86d', data: [] }
-            ]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            scales: { x: { stacked: true }, y: { stacked: true } }
-        }
-    });
+    // Se já existe um gráfico nesta instância, destrua-o
+    if (charts[id]) {
+        charts[id].destroy();
+    }
 
-    // 3. Pizza
-    const ctxTMA = document.getElementById('chartTMA').getContext('2d');
-    charts.tma = new Chart(ctxTMA, {
-        type: 'doughnut',
-        data: {
-            labels: ['Produtivo', 'Shrinkage', 'Absenteísmo', 'Ociosidade'],
-            datasets: [{
-                data: [],
-                backgroundColor: ['#2fa86d', '#f5a623', '#d94fd9', '#333'],
-                borderWidth: 0
-            }]
-        },
+    // Cria novo gráfico
+    charts[id] = new Chart(canvas.getContext('2d'), {
+        type: type,
+        data: { labels: [], datasets: [] },
         options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { position: 'right', labels: { boxWidth: 10, color: '#fff' } } }
+            responsive: true,
+            maintainAspectRatio: false,
+            ...config
         }
     });
+    return charts[id];
 }
 
+// --- CÁLCULO E RENDERIZAÇÃO ---
 function calculateAndRender() {
-    // INPUTS
-    const currentHc = parseFloat(document.getElementById('currentHcInput').value) || 0;
+    console.log("Calculando...");
     
-    const bidVolTotalAno = parseFloat(document.getElementById('inputBidVol').value) || 0;
-    const bidMonthlyGrowth = (parseFloat(document.getElementById('inputGrowthBid').value) || 0) / 100;
-    const growthCarteira = (parseFloat(document.getElementById('inputGrowthCarteira').value) || 0) / 100;
-    
-    // WFM
-    const tmaInput = parseFloat(document.getElementById('tmeInput').value) || 350;
-    const slTarget = (parseFloat(document.getElementById('slInput').value) || 80) / 100;
-    const targetTime = parseFloat(document.getElementById('targetTimeInput').value) || 20;
-    const maxOccupancy = (parseFloat(document.getElementById('occupancyInput').value) || 85) / 100;
-    
-    const contractHours = parseFloat(document.getElementById('contractHoursInput').value) || 180;
-    const shrinkage = (parseFloat(document.getElementById('shrinkageInput').value) || 0) / 100;
-    const absenteeism = (parseFloat(document.getElementById('absenteeismInput').value) || 0) / 100;
-    const totalShrinkage = shrinkage + absenteeism;
-    
-    const cost = parseFloat(document.getElementById('costInput').value) || 0;
-    
-    const rosteringSafety = 1.15; 
+    // Helpers
+    const getVal = (id) => {
+        const el = document.getElementById(id);
+        return el ? (parseFloat(el.value) || 0) : 0;
+    };
 
-    // FINANCEIRO BID
+    // Inputs
+    const currentHc = getVal('currentHcInput');
+    const bidVolTotalAno = getVal('inputBidVol');
+    const bidMonthlyGrowth = getVal('inputGrowthBid') / 100;
+    const growthCarteira = getVal('inputGrowthCarteira') / 100;
+    
+    const tmaInput = getVal('tmeInput');
+    const slTarget = getVal('slInput') / 100;
+    const targetTime = getVal('targetTimeInput');
+    const maxOccupancy = getVal('occupancyInput') / 100;
+    
+    const contractHours = getVal('contractHoursInput');
+    const shrinkage = getVal('shrinkageInput') / 100;
+    const absenteeism = getVal('absenteeismInput') / 100;
+    const totalShrinkage = shrinkage + absenteeism;
+    const cost = getVal('costInput');
+    const rosteringSafety = 1.15;
+
+    // Lógica Financeira (BID)
     let baseBidMonth0 = 0;
-    const n = 12;
     if (bidVolTotalAno > 0) {
-        if (bidMonthlyGrowth <= 0) baseBidMonth0 = bidVolTotalAno / n;
-        else baseBidMonth0 = (bidVolTotalAno * bidMonthlyGrowth) / (Math.pow(1 + bidMonthlyGrowth, n) - 1);
+        if (bidMonthlyGrowth <= 0) baseBidMonth0 = bidVolTotalAno / 12;
+        else baseBidMonth0 = (bidVolTotalAno * bidMonthlyGrowth) / (Math.pow(1 + bidMonthlyGrowth, 12) - 1);
     }
 
-    // LOOP
-    let dataBase = [];
-    let dataBid = [];
-    let dataReqHC = [];
-    let dataCurrentHC = [];
-    
-    let totalReqHC = 0;
-    let totalPas = 0;
-    let globalRealOcc = 0;
+    // Arrays de Dados
+    let labels = [], dBase = [], dBid = [], dReqHC = [], dCurrHC = [], dGap = [];
+    let somaIntra = new Array(13).fill(0);
+    let totalReqHC = 0, totalPas = 0, totalSL = 0;
 
-    db_historico.forEach((mesData, index) => {
-        // Volume
-        let volBidMes = baseBidMonth0 * Math.pow(1 + bidMonthlyGrowth, index);
-        let totalCli = mesData.yfrank + mesData.cmari;
-        let cr = mesData.cr || (totalCli > 0 ? mesData.vol / totalCli : 0);
-        let cliProj = totalCli * (1 + growthCarteira);
-        let volBaseProj = cliProj * cr;
+    db_historico.forEach((m, i) => {
+        labels.push(m.mes);
         
-        let totalVolMes = volBaseProj + volBidMes;
-        let finalVolSac = totalVolMes * 0.27;
-        let finalVolAjuda = totalVolMes * 0.73;
-
-        dataBase.push(Math.round(volBaseProj));
-        dataBid.push(Math.round(volBidMes));
+        let volBid = baseBidMonth0 * Math.pow(1 + bidMonthlyGrowth, i);
+        let cliProj = (m.yfrank + m.cmari) * (1 + growthCarteira);
+        let cr = m.cr || 0.05;
+        let volBase = cliProj * cr;
         
-        // Linha fixa do HC Atual
-        dataCurrentHC.push(currentHc);
+        dBase.push(Math.round(volBase));
+        dBid.push(Math.round(volBid));
+        dCurrHC.push(currentHc);
 
-        // Erlang
-        let diasUteis = 22;
-        let volDiaSac = finalVolSac / diasUteis;
-        let volDiaVoz = finalVolAjuda / diasUteis;
-        let horasLogadasDia = 0;
+        let totalVol = volBase + volBid;
+        let dias = 22;
+        let volDia = totalVol / dias;
+        
+        let sacCalls = volDia * 0.27; 
+        let vozCalls = volDia * 0.73;
+        
+        let agentsNeededDay = 0;
 
         for(let h=0; h<13; h++) {
-            // SAC
-            let callsSac = volDiaSac * curveSAC[h];
-            let trafficSac = (callsSac * tmaInput) / 3600;
-            let reqSac = getRequiredAgents(trafficSac, slTarget, targetTime, tmaInput, maxOccupancy);
+            let curveVal = (typeof curveSAC !== 'undefined') ? (curveSAC[h] || 0) : 0.07;
+            
+            let distSac = sacCalls * curveVal;
+            let tfSac = (distSac * tmaInput) / 3600;
+            let reqSac = getRequiredAgents(tfSac, slTarget, targetTime, tmaInput, maxOccupancy);
 
-            // Voz
-            let curveVozVal = (h === 0) ? 0 : [0.09, 0.11, 0.10, 0.08, 0.08, 0.08, 0.10, 0.11, 0.11, 0.08, 0.06, 0.00][h-1] || 0;
-            let callsVoz = volDiaVoz * curveVozVal;
-            let trafficVoz = (callsVoz * tmaInput) / 3600;
-            let reqVoz = getRequiredAgents(trafficVoz, slTarget, targetTime, tmaInput, maxOccupancy);
+            let vozCurve = [0.09, 0.11, 0.10, 0.08, 0.08, 0.08, 0.10, 0.11, 0.11, 0.08, 0.06, 0.0, 0.0];
+            let distVoz = vozCalls * (vozCurve[h] || 0);
+            let tfVoz = (distVoz * tmaInput) / 3600;
+            let reqVoz = getRequiredAgents(tfVoz, slTarget, targetTime, tmaInput, maxOccupancy);
 
-            horasLogadasDia += (reqSac.agents + reqVoz.agents);
+            let totalH = reqSac.agents + reqVoz.agents;
+            agentsNeededDay += totalH;
+            somaIntra[h] += totalH;
         }
 
-        // HC Mensal
-        let horasLogadasMes = horasLogadasDia * diasUteis;
-        let horasReaisNecessarias = horasLogadasMes * rosteringSafety;
-        let horasLiquidasAgente = contractHours * (1 - totalShrinkage);
-        let hcMensal = horasReaisNecessarias / horasLiquidasAgente;
+        let horasLogadas = agentsNeededDay * dias;
+        let horasReais = horasLogadas * rosteringSafety;
+        let horasLiqAgente = contractHours * (1 - totalShrinkage);
+        let hc = horasLiqAgente > 0 ? horasReais / horasLiqAgente : 0;
+
+        dReqHC.push(hc);
+        dGap.push(hc - currentHc);
         
-        dataReqHC.push(hcMensal);
-        totalReqHC += hcMensal;
-        totalPas += (horasLogadasDia / 13);
+        totalReqHC += hc;
+        totalPas += (agentsNeededDay / 13);
         
-        let workloadMes = (totalVolMes * tmaInput) / 3600;
-        let occMes = (horasLogadasMes > 0) ? workloadMes / horasLogadasMes : 0;
-        globalRealOcc += occMes;
+        let ratio = currentHc / (hc || 1);
+        let estSL = ratio >= 1 ? slTarget : slTarget * Math.pow(ratio, 3);
+        totalSL += estSL;
     });
 
-    // RESULTADOS
+    // Totais e KPIs
     let avgReqHC = Math.ceil(totalReqHC / 12);
-    let avgPas = Math.ceil(totalPas / 12);
-    let avgOcc = globalRealOcc / 12;
-    
-    // Cálculo do GAP
-    let gap = Math.round(avgReqHC - currentHc);
-    let costGap = gap * cost;
-    
-    // Cores dinâmicas para o GAP
-    let gapColor = gap > 0 ? "#e74c3c" : "#2fa86d"; // Vermelho se falta gente, Verde se sobra
-    let gapText = gap > 0 ? `Faltam ${gap} (Contratar)` : `Sobram ${Math.abs(gap)} (Ociosidade)`;
+    let avgGap = Math.round(avgReqHC - currentHc);
+    let avgCost = avgGap * cost;
+    let avgSLFinal = (totalSL / 12) * 100;
+    let avgPasFinal = Math.ceil(totalPas / 12);
+    let prodLiq = Math.round(contractHours * (1 - totalShrinkage));
 
-    document.getElementById('resCurrentHC').innerText = currentHc;
-    document.getElementById('resRequiredHC').innerText = avgReqHC;
+    const set = (id, txt, cls) => {
+        const el = document.getElementById(id);
+        if(el) { el.innerText = txt; if(cls) el.className = `fw-bold mb-0 ${cls}`; }
+    };
+
+    set('resPas', avgPasFinal, 'text-info');
     
-    const elGap = document.getElementById('resGap');
-    elGap.innerText = gapText;
-    elGap.style.color = gapColor;
-
-    const elCostGap = document.getElementById('resCostGap');
-    elCostGap.innerText = costGap.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    elCostGap.style.color = gapColor;
-
-    let rosteringLoss = (1 - (1/rosteringSafety));
-    updateCharts(dataBase, dataBid, dataCurrentHC, dataReqHC, avgOcc, shrinkage, absenteeism, rosteringLoss);
-}
-
-function updateCharts(base, bid, currentHC, reqHC, occ, shrink, abs, rosteringLoss) {
-    if(charts.volume) {
-        charts.volume.data.datasets[0].data = base;
-        charts.volume.data.datasets[1].data = bid;
-        charts.volume.update();
-    }
+    let gapColor = avgGap > 0 ? 'text-danger' : 'text-success';
+    set('resGap', avgGap > 0 ? `-${avgGap}` : `+${Math.abs(avgGap)}`, gapColor);
     
-    if(charts.positions) {
-        charts.positions.data.datasets[0].data = currentHC;
-        charts.positions.data.datasets[1].data = reqHC;
-        charts.positions.update();
+    if(document.getElementById('resGapText')) {
+        document.getElementById('resGapText').innerText = avgGap > 0 ? "Deficit de Pessoas" : "Excesso de Pessoas";
     }
 
-    if(charts.tma) {
-        let totalLoss = shrink + abs;
-        let operational = 1 - (totalLoss + rosteringLoss);
-        charts.tma.data.datasets[0].data = [operational * 100, rosteringLoss * 100, totalLoss * 100, 0];
-        charts.tma.update();
+    set('resCostGap', avgCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), gapColor);
+    
+    let slColor = avgSLFinal < (slTarget*100 - 5) ? 'text-danger' : 'text-success';
+    set('resProjSL', avgSLFinal.toFixed(1) + "%", slColor);
+    
+    set('resProdTime', prodLiq + "h", 'text-secondary');
+
+    // --- ATUALIZAÇÃO DOS GRÁFICOS ---
+    
+    // 1. Chart Headcount (Combo)
+    const cPos = getOrCreateChart('chartPositions', 'bar', {
+        interaction: { mode: 'index', intersect: false },
+        scales: { y: { beginAtZero: true } }
+    });
+    if(cPos) {
+        cPos.data.labels = labels;
+        cPos.data.datasets = [
+            { label: 'Gap', data: dGap, backgroundColor: dGap.map(v => v > 0 ? '#ef4444' : '#10b981'), borderRadius: 4, order: 2 },
+            { label: 'Necessário', data: dReqHC, type: 'line', borderColor: '#2563eb', borderWidth: 3, order: 0 },
+            { label: 'Atual', data: dCurrHC, type: 'line', borderColor: '#f59e0b', borderWidth: 2, borderDash: [5,5], order: 1 }
+        ];
+        cPos.update();
+    }
+
+    // 2. Chart Volume (Forecast)
+    const cVol = getOrCreateChart('chartVolume', 'bar', {
+        scales: { x: { stacked: true }, y: { stacked: true } }
+    });
+    if(cVol) {
+        cVol.data.labels = labels;
+        cVol.data.datasets = [
+            { label: 'Base', data: dBase, backgroundColor: '#cbd5e1' },
+            { label: 'BID', data: dBid, backgroundColor: '#3b82f6' }
+        ];
+        cVol.update();
+    }
+
+    // 3. Chart Intraday (PAs)
+    const cIntra = getOrCreateChart('chartIntraday', 'line', {
+        plugins: { legend: { display: false } },
+        scales: { x: { grid: { display: false } } }
+    });
+    if(cIntra) {
+        cIntra.data.labels = ['08','09','10','11','12','13','14','15','16','17','18','19','20'];
+        cIntra.data.datasets = [{ 
+            label: 'Agentes', 
+            data: somaIntra.map(v => Math.ceil(v/12)), 
+            borderColor: '#8b5cf6', 
+            backgroundColor: 'rgba(139, 92, 246, 0.1)', 
+            fill: true 
+        }];
+        cIntra.update();
+    }
+
+    // 4. Chart Cost Composition (TMA)
+    const cTMA = getOrCreateChart('chartTMA', 'doughnut', {
+        cutout: '75%',
+        plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: {size: 10} } } }
+    });
+    if(cTMA) {
+        let roster = 1 - (1/rosteringSafety);
+        let totalLoss = shrinkage + absenteeism;
+        let op = Math.max(0, 1 - (totalLoss + roster));
+        cTMA.data.labels = ['Produtivo', 'Ineficiência', 'Perdas', 'Ociosidade'];
+        cTMA.data.datasets = [{
+            data: [op*100, roster*100, totalLoss*100, 0],
+            backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#334155'],
+            borderWidth: 0
+        }];
+        cTMA.update();
     }
 }

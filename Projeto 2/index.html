@@ -3,255 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WFM Command Center</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <title>Simulador WFM Real vs Necessário</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-light">
+<body>
 
-<div class="d-flex w-100" id="wrapper">
-
-    <div class="sidebar-dark" id="sidebar-wrapper">
-        <div class="sidebar-header">
-            <div class="fw-bold fs-5 text-white"><i class="bi bi-cpu-fill me-2 text-primary"></i> WFM<span class="fw-light">PRO</span></div>
-        </div>
+    <div class="main-container">
         
-        <div class="sidebar-content custom-scrollbar">
+        <aside class="sidebar">
             
-            <div class="input-group-label">Cenário Atual</div>
-            <div class="p-3 bg-dark-subtle rounded mb-3 border border-dark">
-                <label class="text-white small mb-1"><i class="bi bi-people-fill me-1"></i> Headcount Ativo</label>
-                <input type="number" id="currentHcInput" class="form-control form-control-dark fw-bold text-warning" value="47">
-            </div>
-
-            <div class="input-group-label">Premissas de Demanda</div>
-            <div class="mb-2">
-                <label>BID Anual (Vol)</label>
-                <input type="number" id="inputBidVol" class="form-control form-control-dark" value="108000">
-            </div>
-            <div class="row g-2 mb-3">
-                <div class="col-6">
-                    <label>Ramp BID %</label>
-                    <input type="number" id="inputGrowthBid" class="form-control form-control-dark" value="5">
-                </div>
-                <div class="col-6">
-                    <label>Cresc. Int. %</label>
-                    <input type="number" id="inputGrowthCarteira" class="form-control form-control-dark" value="10">
+            <div class="input-section-header">Quadro Atual</div>
+            <div class="input-section">
+                <div class="input-group">
+                    <label>HC Ativo Hoje (Pessoas)</label>
+                    <input type="number" id="currentHcInput" value="47" style="border-color: #f5a623;">
                 </div>
             </div>
 
-            <div class="input-group-label">Eficiência & SLA</div>
-            <div class="mb-2">
-                <label class="text-info fw-bold">TMA</label>
-                <input type="number" id="tmeInput" class="form-control form-control-dark border-info" value="350">
-            </div>
-            <div class="row g-2 mb-2">
-                <div class="col-6">
-                    <label>NS %</label>
-                    <input type="number" id="slInput" class="form-control form-control-dark" value="80">
+            <div class="input-section-header">Demanda (Forecast)</div>
+            <div class="input-section">
+                <div class="input-group">
+                    <label>BID (Total do Ano)</label>
+                    <input type="number" id="inputBidVol" value="108000">
                 </div>
-                <div class="col-6">
-                    <label>TME</label>
-                    <input type="number" id="targetTimeInput" class="form-control form-control-dark" value="20">
+                <div class="input-group">
+                    <label>Ramp-up Mensal BID (%)</label>
+                    <input type="number" id="inputGrowthBid" value="5">
                 </div>
-            </div>
-            <div class="mb-3">
-                <label>Ocupação Máx %</label>
-                <input type="number" id="occupancyInput" class="form-control form-control-dark" value="85">
+                <hr class="separator">
+                <div class="input-group">
+                    <label>Cresc. Carteira (%)</label>
+                    <input type="number" id="inputGrowthCarteira" value="10">
+                </div>
             </div>
 
-            <div class="input-group-label">Capacidade</div>
-            <div class="mb-2">
-                <label>Carga Mensal (h)</label>
-                <input type="number" id="contractHoursInput" class="form-control form-control-dark" value="180">
-            </div>
-            <div class="row g-2 mb-2">
-                <div class="col-6">
-                    <label>Shrink %</label>
-                    <input type="number" id="shrinkageInput" class="form-control form-control-dark" value="20">
+            <div class="input-section-header">Eficiência & Nível de Serviço</div>
+            <div class="input-section">
+                <div class="input-group">
+                    <label>TMA Alvo (segundos)</label>
+                    <input type="number" id="tmeInput" value="350">
                 </div>
-                <div class="col-6">
-                    <label>Abs %</label>
-                    <input type="number" id="absenteeismInput" class="form-control form-control-dark" value="5">
+                <div class="input-group">
+                    <label>Meta Nível de Serviço (%)</label>
+                    <input type="number" id="slInput" value="80">
                 </div>
-            </div>
-            <div class="mb-4">
-                <label>Custo Médio (R$)</label>
-                <input type="number" id="costInput" class="form-control form-control-dark" value="1700">
+                <div class="input-group">
+                    <label>Tempo Espera (seg)</label>
+                    <input type="number" id="targetTimeInput" value="20">
+                </div>
+                <div class="input-group">
+                    <label>Ocupação Máxima (%)</label>
+                    <input type="number" id="occupancyInput" value="85">
+                </div>
             </div>
 
-        </div>
-        
-        <div class="sidebar-footer p-3">
-            <button id="btnCalc" class="btn btn-primary w-100 fw-bold shadow-lg py-2">
-                <i class="bi bi-calculator me-2"></i> CALCULAR
-            </button>
+            <div class="input-section-header">Capacidade (HC)</div>
+            <div class="input-section">
+                <div class="input-group">
+                    <label>Carga Horária (h)</label>
+                    <input type="number" id="contractHoursInput" value="180">
+                </div>
+                <div class="input-group">
+                    <label>Shrinkage Planejado (%)</label>
+                    <input type="number" id="shrinkageInput" value="20">
+                </div>
+                <div class="input-group">
+                    <label>Absenteísmo (%)</label>
+                    <input type="number" id="absenteeismInput" value="5">
+                </div>
+                <div class="input-group" style="margin-top: 5px;">
+                    <label>Custo por PA (R$)</label>
+                    <input type="number" id="costInput" value="3500">
+                </div>
+            </div>
+
+            <button id="btnCalc">CALCULAR CENÁRIOS</button>
+        </aside>
+
+        <div class="right-column">
+            <header class="header">
+                <div class="header-title">SIMULADOR DE CAPACITY & GAP ANALYSIS</div>
+                <div class="header-logo">LOGO</div>
+            </header>
+
+            <main class="content-area">
+                
+                <div class="grid-box graph-box">
+                    <h4>Quadro Atual vs Necessidade (Headcount)</h4>
+                    <div class="canvas-container">
+                        <canvas id="chartPositions"></canvas>
+                    </div>
+                </div>
+
+                <div class="grid-box graph-box">
+                    <h4>Volume Projetado (Base + BID)</h4>
+                    <div class="canvas-container">
+                        <canvas id="chartVolume"></canvas>
+                    </div>
+                </div>
+
+                <div class="grid-box graph-box">
+                    <h4>Distribuição de Horas</h4>
+                    <div class="canvas-container">
+                        <canvas id="chartTMA"></canvas>
+                    </div>
+                </div>
+
+                <div class="grid-box results-box">
+                    <h4>Análise de Gap (Média Mensal)</h4>
+                    
+                    <div class="kpi-container">
+                        <div class="kpi-item">
+                            <span class="kpi-label" style="color:#f5a623">🚧 HC Atual</span>
+                            <span class="kpi-value" id="resCurrentHC" style="color:#f5a623">0</span>
+                        </div>
+                        <div class="kpi-item">
+                            <span class="kpi-label">🎯 HC Necessário (Ideal)</span>
+                            <span class="kpi-value" id="resRequiredHC">0</span>
+                        </div>
+                         <div class="kpi-item">
+                            <span class="kpi-label">⚖️ Gap / Sobra</span>
+                            <span class="kpi-value" id="resGap">0</span>
+                        </div>
+                        <div class="kpi-item">
+                            <span class="kpi-label highlight-label">💲 Variação Custo</span>
+                            <span class="kpi-value highlight" id="resCostGap">R$ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
         </div>
     </div>
 
-    <div id="page-content-wrapper">
-        
-        <nav class="navbar navbar-light bg-white px-4 py-3 shadow-sm border-bottom sticky-top">
-            <div>
-                <h5 class="fw-bold mb-0 text-dark">WFM Command Center</h5>
-                <small class="text-muted">Simulação de Capacity & Dimensionamento</small>
-            </div>
-            <div class="d-flex gap-3 align-items-center">
-                <div class="text-end">
-                    <span class="badge bg-success bg-opacity-10 text-success border border-success px-3">Sistema Online</span>
-                </div>
-            </div>
-        </nav>
-
-        <div class="container-fluid px-4 py-4">
-            
-            <div class="row g-3 mb-4 row-cols-1 row-cols-md-2 row-cols-xl-5">
-                <div class="col">
-                    <div class="card card-kpi border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <p class="text-muted text-uppercase fw-bold mb-1 small">PA's Requeridas</p>
-                                    <h2 class="fw-bold mb-0 text-info" id="resPas">0</h2>
-                                </div>
-                                <div class="icon-shape bg-light text-info rounded-3"><i class="bi bi-headset"></i></div>
-                            </div>
-                            <small class="text-muted mt-2 d-block small">Posições simultâneas</small>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col">
-                    <div class="card card-kpi border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <p class="text-muted text-uppercase fw-bold mb-1 small">Gap Operacional</p>
-                                    <h2 class="fw-bold mb-0" id="resGap">0</h2>
-                                </div>
-                                <div class="icon-shape bg-light text-primary rounded-3"><i class="bi bi-people-fill"></i></div>
-                            </div>
-                            <small id="resGapText" class="text-muted mt-2 d-block small">Pessoas vs Necessidade</small>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col">
-                    <div class="card card-kpi border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <p class="text-muted text-uppercase fw-bold mb-1 small">Impacto Budget</p>
-                                    <h3 class="fw-bold mb-0 text-dark" id="resCostGap">R$ 0</h3>
-                                </div>
-                                <div class="icon-shape bg-light text-success rounded-3"><i class="bi bi-currency-dollar"></i></div>
-                            </div>
-                            <small class="text-muted mt-2 d-block small">Variação Mensal</small>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col">
-                    <div class="card card-kpi border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <p class="text-muted text-uppercase fw-bold mb-1 small">SL Projetado</p>
-                                    <h3 class="fw-bold mb-0" id="resProjSL">--%</h3>
-                                </div>
-                                <div class="icon-shape bg-light text-warning rounded-3"><i class="bi bi-activity"></i></div>
-                            </div>
-                            <small class="text-muted mt-2 d-block small">Com HC Atual</small>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col">
-                    <div class="card card-kpi border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <p class="text-muted text-uppercase fw-bold mb-1 small">Produtividade</p>
-                                    <h3 class="fw-bold mb-0 text-secondary" id="resProdTime">0h</h3>
-                                </div>
-                                <div class="icon-shape bg-light text-secondary rounded-3"><i class="bi bi-clock-history"></i></div>
-                            </div>
-                            <small class="text-muted mt-2 d-block small">Horas Líquidas/Mês</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row g-4 mb-4">
-                <div class="col-lg-8">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                            <h6 class="m-0 fw-bold text-primary"><i class="bi bi-graph-up-arrow me-2"></i>Headcount: Realizado vs Necessidade</h6>
-                        </div>
-                        <div class="card-body p-0">
-                            <div class="chart-wrapper-main">
-                                <div class="chart-container">
-                                    <canvas id="chartPositions"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-lg-4">
-                    <div class="d-flex flex-column gap-4 h-100">
-                        
-                        <div class="card border-0 shadow-sm flex-fill">
-                            <div class="card-header bg-white py-2">
-                                <small class="fw-bold text-uppercase text-muted">Composição de Custo</small>
-                            </div>
-                            <div class="card-body p-0 d-flex align-items-center justify-content-center">
-                                <div class="chart-wrapper-side">
-                                    <div class="chart-container">
-                                        <canvas id="chartTMA"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card border-0 shadow-sm flex-fill">
-                            <div class="card-header bg-white py-2">
-                                <small class="fw-bold text-uppercase text-muted">Intraday (PAs)</small>
-                            </div>
-                            <div class="card-body p-0 d-flex align-items-center justify-content-center">
-                                <div class="chart-wrapper-side">
-                                    <div class="chart-container">
-                                        <canvas id="chartIntraday"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white py-3">
-                    <h6 class="m-0 fw-bold text-secondary"><i class="bi bi-bar-chart-steps me-2"></i>Evolução de Volume (Forecast)</h6>
-                </div>
-                <div class="card-body p-0">
-                    <div class="chart-wrapper-main">
-                        <div class="chart-container">
-                            <canvas id="chartVolume"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-    </div>
-</div>
-
-<script src="database.js"></script>
-<script src="script.js"></script>
+    <script src="database.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
