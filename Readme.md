@@ -11,7 +11,7 @@
 [PYTHON_BADGE]:https://img.shields.io/badge/Python-3.11.9-blue?style=for-the-badge&logo=python&logoColor=lightskyblue
 [PRS_BADGE]:https://img.shields.io/badge/PRs-welcome-green?style=for-the-badge
 
-<h1 align="center" style="font-weight: bold;">Project name 💻</h1>
+<h1 align="center" style="font-weight: bold;">Simulador de Capacity 💻</h1>
 
 ![license][LICENSE__BADGE]
 ![react][REACT__BADGE]
