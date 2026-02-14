@@ -1,33 +1,53 @@
+[LICENSE__BADGE]: https://img.shields.io/github/license/Fernanda-Kipper/Readme-Templates?style=for-the-badge
+[JAVASCRIPT__BADGE]: https://img.shields.io/badge/Javascript-000?style=for-the-badge&logo=javascript
+[TYPESCRIPT__BADGE]: https://img.shields.io/badge/typescript-D4FAFF?style=for-the-badge&logo=typescript
+[REACT__BADGE]: https://img.shields.io/badge/React-005CFE?style=for-the-badge&logo=react
+[VUE__BADGE]: https://img.shields.io/badge/VueJS-fff?style=for-the-badge&logo=vue
+[GATSBY__BADGE]: https://img.shields.io/badge/Gatsby-7026b9?style=for-the-badge&logo=gatsby
+[ANGULAR__BADGE]: https://img.shields.io/badge/Angular-red?style=for-the-badge&logo=angular
+[PROJECT__BADGE]: https://img.shields.io/badge/📱Visit_this_project-000?style=for-the-badge&logo=project
+[PROJECT__URL]: https://github.com/Fernanda-Kipper/Readme-Templates
+[NODE_BADGE]:https://img.shields.io/badge/node.js-20.16.0-43853D?style=for-the-badge&logo=node.js
+[PYTHON_BADGE]:https://img.shields.io/badge/Python-3.11.9-blue?style=for-the-badge&logo=python&logoColor=lightskyblue
+[PRS_BADGE]:https://img.shields.io/badge/PRs-welcome-green?style=for-the-badge
+
 <h1 align="center" style="font-weight: bold;">Project name 💻</h1>
 
-<p align="center">
- <a href="#tech">Technologies</a> • 
- <a href="#started">Getting Started</a> • 
-  <a href="#colab">Collaborators</a> •
- <a href="#contribute">Contribute</a>
-</p>
+![license][LICENSE__BADGE]
+![react][REACT__BADGE]
+![gatsby][GATSBY__BADGE]
+![angular][ANGULAR__BADGE]
+![vue][VUE__BADGE]
+![typescript][TYPESCRIPT__BADGE]
+![javascript][JAVASCRIPT__BADGE]
+![node][NODE_BADGE]
+![python][PYTHON_BADGE]
+![prs][PRS_BADGE]
 
-<p align="center">
-    <b>Simple description of what your project do or how to use it</b>
-</p>
+<details open="open">
+<summary>Table of Contents</summary>
+ 
+- [📌 About](#started)
+- [🚀 Getting started](#started)
+  - [Prerequisites](#prerequisites)
+  - [Cloning](#cloning)
+  - [Starting](#starting)
+- [📍 Application Routes](#routes)
+- [🤝 Collaborators](#colab)
+- [📫 Contribute](#contribute)
+  
+</details>
 
-<p align="center">
-     <a href="PROJECT__URL">📱 Visit this Project</a>
-</p>
-
-<h2 id="layout">🎨 Layout</h2>
 
 <p align="center">
     <img src="../.github/example.png" alt="Image Example" width="400px">
-    <img src="../.github/example.png" alt="Image Example" width="400px">
 </p>
 
-<h2 id="technologies">💻 Technologies</h2>
+<h2 id="started">📌 About</h2>
 
-- list of all technologies you used
-- react
-- styled components
-- another example
+Simple description of what your project do or how to use it.
+
+[![project][PROJECT__BADGE]][PROJECT__URL]
 
 <h2 id="started">🚀 Getting started</h2>
 
@@ -56,6 +76,16 @@ How to start your project
 cd project-name
 npm some-command-to-run
 ```
+
+<h2 id="routes">📍 Application Routes</h2>
+
+Here you can list the main routes of your API, and what are their expected request bodies.
+​
+| route               | description                                          
+|----------------------|-----------------------------------------------------
+| <kbd>/authenticate</kbd>     | page that list all user info
+| <kbd>/login</kbd>     | page to login
+| <kbd>/dashboard</kbd>     | page that contains all user shopping and spences info
 
 <h2 id="colab">🤝 Collaborators</h2>
 
